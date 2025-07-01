@@ -14,7 +14,14 @@ interface CoachingReport {
     tip: string;
     comment: string;
 }
-interface PraiseSticker { message: string; prompt: string; url: string; }
+// ✨ 신규: 학습 동화 데이터 타입
+interface StoryData {
+    title: string;
+    story: string;
+    summary: string;
+    questions: string[];
+}
+
 
 // --- 헬퍼 및 UI 컴포넌트 ---
 const Spinner = () => <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>;
@@ -80,6 +87,26 @@ const StudentFeedbackCard = ({ report }: { report: CoachingReport }) => (
     </div>
 );
 
+// ✨ 신규: 학습 동화 카드 컴포넌트
+const StoryCard = ({ data }: { data: StoryData }) => (
+    <div className="bg-gray-700 p-4 rounded-md space-y-4">
+        <div>
+            <h4 className="font-bold text-lg text-rose-300">📖 오늘의 학습 동화: {data.title}</h4>
+            <p className="text-gray-200 mt-2 whitespace-pre-wrap leading-relaxed">{data.story}</p>
+        </div>
+        <div className="pt-4 border-t border-white/10">
+            <h4 className="font-bold text-lg text-rose-300">📝 오늘 배운 내용 정리</h4>
+            <p className="text-gray-200 mt-1">{data.summary}</p>
+        </div>
+        <div className="pt-4 border-t border-white/10">
+            <h4 className="font-bold text-lg text-rose-300">❓ 생각해보기</h4>
+            <ul className="list-disc list-inside mt-1 text-gray-200 space-y-1">
+                {data.questions.map((q, i) => <li key={i}>{q}</li>)}
+            </ul>
+        </div>
+    </div>
+);
+
 
 // --- 메인 앱 컴포넌트 ---
 export default function App() {
@@ -89,16 +116,19 @@ export default function App() {
     const [selectedEmotion, setSelectedEmotion] = useState('');
     const [emotionReason, setEmotionReason] = useState('');
     const [dailyThought, setDailyThought] = useState('');
+    const [lifeFeedback, setLifeFeedback] = useState('');
     const [studyContent, setStudyContent] = useState('');
     const [coachingReport, setCoachingReport] = useState<CoachingReport | null>(null);
     const [problems, setProblems] = useState<Question[]>([]);
     const [userAnswers, setUserAnswers] = useState<UserAnswers>({});
     const [revealedAnswers, setRevealedAnswers] = useState<RevealedAnswers>({});
-    const [praiseSticker, setPraiseSticker] = useState<PraiseSticker | null>(null);
-    const [story, setStory] = useState<string>('');
+    const [storyData, setStoryData] = useState<StoryData | null>(null); // ✨ 신규
 
     const [loadingStates, setLoadingStates] = useState({
-        analysis: false, problems: false, sticker: false, story: false,
+        lifeFeedback: false,
+        analysis: false, 
+        problems: false,
+        story: false, // ✨ 신규
     });
     
     const [db, setDb] = useState<Firestore | null>(null);
@@ -175,13 +205,13 @@ export default function App() {
                 setSelectedEmotion(data.selectedEmotion || '');
                 setEmotionReason(data.emotionReason || '');
                 setDailyThought(data.dailyThought || '');
+                setLifeFeedback(data.aiLifeFeedback || '');
                 setStudyContent(data.studyContent || '');
                 setCoachingReport(data.aiCoachingReport || null);
                 setProblems(data.aiProblems || []);
                 setUserAnswers(data.userAnswers || {});
                 setRevealedAnswers(data.revealedAnswers || {});
-                setPraiseSticker(data.aiPraiseSticker || null);
-                setStory(data.aiStory || '');
+                setStoryData(data.aiStoryData || null); // ✨ 신규
             }
         }, (err) => {
             console.error("Firestore 데이터 동기화 오류:", err);
@@ -247,29 +277,30 @@ export default function App() {
         }
     };
     
-    const callImagenAPI = async (prompt: string) => {
-        const apiKey = getGeminiApiKey();
-        if (apiKey === null) {
-            setError("API 키가 설정되지 않았습니다.");
-            return null;
-        }
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
-        const body = { instances: [{ prompt }], parameters: { "sampleCount": 1 } };
-        try {
-            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-            if (!response.ok) throw new Error(`API Error: ${response.status} ${await response.text()}`);
-            return await response.json();
-        } catch (err) {
-            setModalMessage(`이미지 생성 중 오류가 발생했습니다.`);
-            return null;
-        }
-    };
-    
     const setLoading = (key: keyof typeof loadingStates, value: boolean) => {
         setLoadingStates(prev => ({ ...prev, [key]: value }));
     };
 
     // --- AI 기능 핸들러 ---
+    const handleGetLifeFeedback = async () => {
+        if (Object.values(learningChecklist).every(v => !v) && !selectedEmotion && !dailyThought.trim()) {
+            setModalMessage('오늘의 활동을 하나 이상 기록해야 피드백을 받을 수 있어요!');
+            return;
+        }
+        setLoading('lifeFeedback', true);
+        setLifeFeedback('');
+        const checkedItems = checklistItems.filter(item => learningChecklist[item.id]).map(item => item.label).join(', ') || '없음';
+        const emotionLabel = emotions.find(e => e.id === selectedEmotion)?.label || '표시 안 함';
+        const prompt = `당신은 초등학교 3학년 학생의 AI 담임선생님입니다. 학생의 하루 기록을 보고, 아주 다정하고 따뜻한 격려의 말을 한글로 2~3문장 작성해주세요. 학생의 감정을 공감해주고, 작은 노력도 칭찬해주세요.\n\n[학생 기록]\n- 학습 체크리스트: ${checkedItems}\n- 오늘의 감정: ${emotionLabel} (${emotionReason || '이유 없음'})\n- 오늘의 생각: ${dailyThought}\n\n[선생님의 따뜻한 한마디]:`;
+        const result = await callGeminiAPI(prompt);
+        if (result) {
+            const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text || "피드백을 생성하지 못했어요.";
+            setLifeFeedback(generatedText);
+            await saveData({ aiLifeFeedback: generatedText });
+        }
+        setLoading('lifeFeedback', false);
+    };
+
     const handleGetWritingCoaching = async () => {
         if (!studyContent.trim()) { 
             setModalMessage('먼저 오늘 배운 내용을 작성해주세요!'); 
@@ -332,46 +363,51 @@ export default function App() {
         setLoading('problems', false);
     };
 
-    const handleGetPraiseSticker = async () => {
-        const diarySummary = `체크리스트: ${Object.entries(learningChecklist).filter(([, val]) => val).map(([key]) => checklistItems.find(item => item.id === key)?.label).join(', ') || '없음'}, 감정: ${emotions.find(e => e.id === selectedEmotion)?.label || '선택안함'}, 생각: ${dailyThought || '없음'}`;
-        if (Object.values(learningChecklist).every(v => !v) && !selectedEmotion && !dailyThought.trim()) {
-            setModalMessage('오늘의 활동을 하나 이상 기록해야 스티커를 받을 수 있어요!');
-            return;
+    // ✨ 신규: 학습 동화 만들기 핸들러
+    const handleGetStory = async () => {
+        if (!studyContent.trim()) { 
+            setModalMessage('동화를 만들려면 공부한 내용을 먼저 알려주세요!'); 
+            return; 
         }
-        setLoading('sticker', true);
-        setPraiseSticker(null);
+        setLoading('story', true);
+        setStoryData(null);
+        const prompt = `
+            너는 초등학교 3학년 학생이 오늘 배운 내용을 더 재미있게 이해할 수 있도록 짧고 따뜻한 학습 동화를 만들어주는 AI야.
+            아래 학생의 글과 학습 목표를 참고해서, 4가지 항목을 포함한 JSON 형식으로 동화를 만들어줘.
+            1. title: 동화의 제목
+            2. story: 초등학교 3학년 학생이 이해할 수 있는 단어와 문장으로, 학습 목표의 핵심 개념을 자연스럽게 포함시킨 5~7문장의 동화
+            3. summary: 동화 마지막에 오늘 배운 내용을 한두 문장으로 간단하고 쉽게 정리
+            4. questions: 동화를 읽은 후 학생이 스스로 생각해볼 수 있는 질문 1~2개
+            
+            [입력 예시]
+            - 학생의 글: "직선에 대해서 공부했다."
+            - 학습 목표: "직선의 정의를 이해하고, 직선과 선분의 차이를 구별할 수 있다."
 
-        const promptGenPrompt = `당신은 초등학생을 칭찬하는 AI입니다. 학생의 하루 기록을 보고, 칭찬 메시지와 칭찬 스티커 이미지를 만들기 위한 영어 프롬프트를 생성해주세요. 칭찬 메시지는 한글로 1~2문장의 짧고 구체적인 칭찬이어야 합니다. 이미지 프롬프트는 'A cute cartoon gold medal with a smiling face, happy, simple vector art' 와 같이 귀여운 만화 스타일이어야 합니다. 반드시 JSON 형식으로 {"message": "칭찬 메시지", "prompt": "이미지 프롬프트"} 라고 답해주세요.\n\n[학생 기록]:\n${diarySummary}`;
-        
-        const promptResult = await callGeminiAPI(promptGenPrompt, 'gemini-2.0-flash', { responseMimeType: "application/json" });
-        if (promptResult) {
-            const jsonText = promptResult.candidates?.[0]?.content?.parts?.[0]?.text;
+            [출력 형식 예시]
+            {
+              "title": "끝없이 여행하는 직선 친구",
+              "story": "옛날 옛날에, 끝없이 뻗어 나가는 것을 좋아하는 '직선'이라는 친구가 살았어요. 직선은 양쪽으로 쉬지 않고 쌩쌩 달릴 수 있었죠. 어느 날, '선분'이라는 친구를 만났어요. 선분은 시작하는 점과 끝나는 점이 있어서, 직선처럼 끝없이 달리지는 못했답니다. 대신 정해진 길을 아주 반듯하게 갈 수 있었어요. 직선과 선분은 서로 다르지만, 둘 다 멋진 친구였답니다.",
+              "summary": "직선은 양쪽으로 끝없이 뻗어나가는 선이고, 선분은 시작과 끝이 정해진 반듯한 선이에요.",
+              "questions": [
+                "우리 교실에서 직선처럼 끝없이 뻗어나갈 것 같은 선은 어디에 있을까요?",
+                "내 필통 속에 있는 물건 중에서는 선분을 찾을 수 있을까요?"
+              ]
+            }
+
+            [실제 요청]
+            - 학생의 글: "${studyContent}"
+            - 학습 목표: "학생이 작성한 글을 바탕으로, 글의 핵심 개념을 학습 목표로 삼아주세요."
+        `;
+        const result = await callGeminiAPI(prompt, 'gemini-2.0-flash', { responseMimeType: "application/json" });
+        if (result) {
+            const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
             if (jsonText) {
                 try {
                     const parsed = JSON.parse(jsonText);
-                    const imageResult = await callImagenAPI(parsed.prompt);
-                    if (imageResult && imageResult.predictions && imageResult.predictions[0].bytesBase64Encoded) {
-                        const imageUrl = `data:image/png;base64,${imageResult.predictions[0].bytesBase64Encoded}`;
-                        const newSticker = { message: parsed.message, prompt: parsed.prompt, url: imageUrl };
-                        setPraiseSticker(newSticker);
-                        await saveData({ aiPraiseSticker: newSticker });
-                    }
-                } catch(e) { setModalMessage("스티커를 만들다가 오류가 생겼어요."); }
+                    setStoryData(parsed);
+                    await saveData({ aiStoryData: parsed });
+                } catch(e) { setModalMessage("학습 동화를 처리하는 데 실패했습니다."); }
             }
-        }
-        setLoading('sticker', false);
-    };
-
-    const handleGetStory = async () => {
-        if (!studyContent.trim()) { setModalMessage('동화를 만들려면 공부한 내용을 먼저 알려주세요!'); return; }
-        setLoading('story', true);
-        setStory('');
-        const prompt = `당신은 아주 재미있는 동화 작가입니다. 초등학교 3학년 학생이 공부한 내용을 주제로, 짧고 신나는 동화 한 편을 써주세요. 주인공이 등장해서 모험을 떠나는 이야기면 좋겠습니다. 어려운 단어는 쓰지 말고, 5~7문장 정도로 짧게 써주세요.\n\n[오늘 배운 내용]:\n${studyContent}\n\n[재미있는 학습 동화]:`;
-        const result = await callGeminiAPI(prompt);
-        if (result) {
-            const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text || "동화를 만들지 못했어요. 다시 시도해봐요!";
-            setStory(generatedText);
-            await saveData({ aiStory: generatedText });
         }
         setLoading('story', false);
     };
@@ -408,13 +444,13 @@ export default function App() {
                              <h3 className="text-lg font-bold mb-3 text-pink-300">3. 오늘의 생각 한 줄</h3>
                              <textarea rows={3} className="w-full bg-gray-700 p-3 rounded-md border border-gray-600 focus:ring-2 focus:ring-pink-500 focus:outline-none transition" placeholder="자유롭게 느낀 점을 기록해보세요." value={dailyThought} onChange={e => setDailyThought(e.target.value)} onBlur={e => saveData({dailyThought: e.target.value})} />
                         </div>
-                        <button onClick={handleGetPraiseSticker} disabled={loadingStates.sticker} className="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md">
-                            {loadingStates.sticker ? <Spinner /> : '✨ 칭찬 스티커 받기'}
+                        <button onClick={handleGetLifeFeedback} disabled={loadingStates.lifeFeedback} className="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md">
+                            {loadingStates.lifeFeedback ? <Spinner /> : '✨ AI 선생님 피드백 받기'}
                         </button>
                     </div>
 
-                    {(praiseSticker || loadingStates.sticker) && (
-                        <div className="bg-gray-800 p-6 rounded-xl shadow-lg"><h2 className="text-xl font-bold mb-3 text-yellow-300">🌟 오늘의 칭찬 스티커</h2><div className="bg-gray-700 p-4 rounded-md min-h-[200px] flex flex-col justify-center items-center text-center">{loadingStates.sticker ? <div className="text-center"><Spinner /><p className="mt-2 text-gray-400">스티커를 만들고 있어요...</p></div> : praiseSticker && <> <img src={praiseSticker.url} alt={praiseSticker.prompt} className="rounded-md w-32 h-32 mx-auto" /> <p className="mt-4 text-lg font-semibold text-yellow-200">{praiseSticker.message}</p> </>}</div></div>
+                    {(lifeFeedback || loadingStates.lifeFeedback) && (
+                        <div className="bg-gray-800 p-6 rounded-xl shadow-lg"><h2 className="text-xl font-bold mb-3 text-yellow-300">💌 AI 선생님의 따뜻한 피드백</h2><div className="bg-gray-700 p-4 rounded-md min-h-[100px] flex items-center justify-center">{loadingStates.lifeFeedback ? <p className="text-gray-400">선생님께서 피드백을 작성하고 계세요...</p> : <p className="text-gray-300 whitespace-pre-wrap">{lifeFeedback}</p>}</div></div>
                     )}
 
                     <div className="bg-gray-800 p-6 rounded-xl shadow-lg space-y-4">
@@ -430,7 +466,7 @@ export default function App() {
                                 {loadingStates.problems ? <Spinner /> : '📝 관련 문제 풀기'}
                             </button>
                             <button onClick={handleGetStory} disabled={loadingStates.story} className="col-span-1 sm:col-span-2 w-full flex justify-center items-center gap-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md">
-                                {loadingStates.story ? <Spinner /> : '✨ 학습 동화 만들기'}
+                                {loadingStates.story ? <Spinner /> : '📖 학습 동화 만들기'}
                             </button>
                         </div>
                     </div>
@@ -446,8 +482,15 @@ export default function App() {
                         </div>
                     )}
 
-                    {(story || loadingStates.story) && (
-                        <div className="bg-gray-800 p-6 rounded-xl shadow-lg"><h2 className="text-xl font-bold mb-3 text-rose-300">📖 AI 학습 동화</h2><div className="bg-gray-700 p-4 rounded-md min-h-[150px]">{loadingStates.story ? <div className="flex justify-center items-center h-full"><p className="text-gray-400">재미있는 동화를 쓰고 있어요...</p></div> : <p className="text-gray-300 whitespace-pre-wrap leading-relaxed">{story}</p>}</div></div>
+                    {(storyData || loadingStates.story) && (
+                        <div className="bg-gray-800 p-6 rounded-xl shadow-lg">
+                            <h2 className="text-xl font-bold mb-3 text-rose-300">📖 AI 학습 동화</h2>
+                            {loadingStates.story ? (
+                                <div className="flex justify-center items-center h-full min-h-[200px]"><p className="text-gray-400">재미있는 동화를 만들고 있어요...</p></div>
+                            ) : storyData && (
+                                <StoryCard data={storyData} />
+                            )}
+                        </div>
                     )}
 
                     {(problems.length > 0 || loadingStates.problems) && (
