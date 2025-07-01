@@ -14,7 +14,7 @@ interface CoachingReport {
     tip: string;
     comment: string;
 }
-interface PraiseSticker { message: string; prompt: string; url: string; } // ✨ 신규
+interface PraiseSticker { message: string; prompt: string; url: string; }
 
 // --- 헬퍼 및 UI 컴포넌트 ---
 const Spinner = () => <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>;
@@ -94,8 +94,8 @@ export default function App() {
     const [problems, setProblems] = useState<Question[]>([]);
     const [userAnswers, setUserAnswers] = useState<UserAnswers>({});
     const [revealedAnswers, setRevealedAnswers] = useState<RevealedAnswers>({});
-    const [praiseSticker, setPraiseSticker] = useState<PraiseSticker | null>(null); // ✨ 신규
-    const [story, setStory] = useState<string>(''); // ✨ 신규
+    const [praiseSticker, setPraiseSticker] = useState<PraiseSticker | null>(null);
+    const [story, setStory] = useState<string>('');
 
     const [loadingStates, setLoadingStates] = useState({
         analysis: false, problems: false, sticker: false, story: false,
