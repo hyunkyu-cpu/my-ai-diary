@@ -105,6 +105,27 @@ const StoryCard = ({ data }: { data: StoryData }) => (
     </div>
 );
 
+// ✨✨✨ 테스트용 컴포넌트 추가 ✨✨✨
+const TestComponent = () => {
+    return (
+        <div style={{
+            backgroundColor: 'yellow',
+            color: 'black',
+            padding: '20px',
+            textAlign: 'center',
+            fontSize: '24px',
+            fontWeight: 'bold',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            zIndex: 9999,
+        }}>
+            이 메시지가 보이면 코드가 성공적으로 변경된 것입니다!
+        </div>
+    );
+};
+
 
 // --- 메인 앱 컴포넌트 ---
 export default function App() {
@@ -268,10 +289,10 @@ export default function App() {
     };
 
     // --- AI 기능 핸들러 ---
-    const handleGetLifeFeedback = async () => { /* ... 이전과 동일 ... */ };
-    const handleGetWritingCoaching = async () => { /* ... 이전과 동일 ... */ };
-    const handleGetProblems = async () => { /* ... 이전과 동일 ... */ };
-    const handleGetStory = async () => { /* ... 이전과 동일 ... */ };
+    const handleGetLifeFeedback = async () => { setModalMessage('데모 버전에서는 AI 기능을 사용할 수 없습니다.'); };
+    const handleGetWritingCoaching = async () => { setModalMessage('데모 버전에서는 AI 기능을 사용할 수 없습니다.'); };
+    const handleGetProblems = async () => { setModalMessage('데모 버전에서는 AI 기능을 사용할 수 없습니다.'); };
+    const handleGetStory = async () => { setModalMessage('데모 버전에서는 AI 기능을 사용할 수 없습니다.'); };
 
     // --- 선생님께 일기 보내기 함수 ---
     const saveAndSendDiary = async () => {
@@ -316,10 +337,12 @@ export default function App() {
 
     return (
         <div className="bg-gray-900 min-h-screen font-sans text-white p-4 md:p-8 flex justify-center">
+            {/* ✨✨✨ 테스트용 컴포넌트 추가 ✨✨✨ */}
+            <TestComponent />
+            
             {modalMessage && <Modal message={modalMessage} onClose={() => setModalMessage('')} />}
-            <div className="w-full max-w-2xl pb-16">
+            <div className="w-full max-w-2xl pb-16 pt-24"> {/* pt-24 to avoid overlap with TestComponent */}
                 <header className="text-center mb-8">
-                    {/* ✨✨✨ 이 부분이 새로 추가된 이름 설정 UI 입니다 ✨✨✨ */}
                     <div className="bg-gray-700 p-4 rounded-lg mb-8">
                         <h2 className="text-lg font-bold text-teal-300">👋 안녕하세요! {studentName || '학생'}님</h2>
                         <div className="flex gap-2 mt-3">
@@ -449,4 +472,3 @@ export default function App() {
         </div>
     );
 }
-
