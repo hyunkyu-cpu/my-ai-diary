@@ -34,7 +34,6 @@ const Modal = ({ message, onClose }: { message: string; onClose: () => void }) =
     </div>
 );
 
-// ... (다른 UI 컴포넌트들은 이전과 동일하게 유지) ...
 const ChecklistItem = ({ label, isChecked, onToggle }: { label: string; isChecked: boolean; onToggle: () => void }) => (
     <div className={`flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200 ${isChecked ? 'bg-purple-600 shadow-lg' : 'bg-gray-700 hover:bg-gray-600'}`} onClick={onToggle}>
         <div className="w-5 h-5 border-2 border-white/50 rounded-sm flex items-center justify-center mr-3 flex-shrink-0">{isChecked && <span className="text-white">✔</span>}</div>
@@ -106,6 +105,7 @@ const StoryCard = ({ data }: { data: StoryData }) => (
     </div>
 );
 
+
 // --- 메인 앱 컴포넌트 ---
 export default function App() {
     // --- 상태 관리 ---
@@ -129,13 +129,11 @@ export default function App() {
     const [studentName, setStudentName] = useState('');
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
-    // ✨ 신규: 임시로 이름을 입력받기 위한 상태
     const [tempName, setTempName] = useState('');
 
 
-    // ... (다른 함수들은 이전과 동일하게 유지) ...
-        const getEnvVar = useCallback((key: string): string | undefined => {
+    // --- 환경 변수 및 Firebase 초기화 ---
+    const getEnvVar = useCallback((key: string): string | undefined => {
         try {
             // @ts-ignore
             if (typeof import.meta.env !== 'undefined') { return import.meta.env[key]; }
@@ -159,8 +157,6 @@ export default function App() {
             const unsubscribe = onAuthStateChanged(auth, async (user) => {
                 if (user) {
                     setUserId(user.uid);
-                    // 이름을 직접 설정하므로 이 부분은 잠시 비워둡니다.
-                    // setStudentName(user.displayName || "학생 이름 없음");
                 } else {
                     try {
                         const initialAuthToken = typeof window !== 'undefined' ? (window as any).__initial_auth_token : undefined;
@@ -182,6 +178,7 @@ export default function App() {
         }
     }, [getEnvVar]);
 
+    // --- 데이터 로딩 및 저장 ---
     useEffect(() => {
         if (!isAuthReady || !db || !userId) return;
         const appId = (typeof window !== 'undefined' ? (window as any).__app_id : undefined) || 'ai-learning-diary';
@@ -221,6 +218,7 @@ export default function App() {
         }
     }, [db, userId]);
 
+    // --- UI 이벤트 핸들러 ---
     const handleChecklistToggle = (id: string) => {
         const updated = { ...learningChecklist, [id]: !learningChecklist[id] };
         setLearningChecklist(updated);
@@ -239,6 +237,7 @@ export default function App() {
         saveData({ revealedAnswers: updated });
     };
 
+    // --- Gemini API 호출 ---
     const getGeminiApiKey = useCallback((): string | null => {
         const apiKey = getEnvVar('VITE_GEMINI_API_KEY');
         if (typeof apiKey !== 'undefined') return apiKey;
@@ -268,6 +267,7 @@ export default function App() {
         setLoadingStates(prev => ({ ...prev, [key]: value }));
     };
 
+    // --- AI 기능 핸들러 ---
     const handleGetLifeFeedback = async () => { /* ... 이전과 동일 ... */ };
     const handleGetWritingCoaching = async () => { /* ... 이전과 동일 ... */ };
     const handleGetProblems = async () => { /* ... 이전과 동일 ... */ };
@@ -319,7 +319,7 @@ export default function App() {
             {modalMessage && <Modal message={modalMessage} onClose={() => setModalMessage('')} />}
             <div className="w-full max-w-2xl pb-16">
                 <header className="text-center mb-8">
-                    {/* ✨ 신규: 임시 이름 설정 UI */}
+                    {/* ✨✨✨ 이 부분이 새로 추가된 이름 설정 UI 입니다 ✨✨✨ */}
                     <div className="bg-gray-700 p-4 rounded-lg mb-8">
                         <h2 className="text-lg font-bold text-teal-300">👋 안녕하세요! {studentName || '학생'}님</h2>
                         <div className="flex gap-2 mt-3">
@@ -450,3 +450,25 @@ export default function App() {
         </div>
     );
 }
+
+```
+
+---
+
+### ## 2단계: 배포 절차 다시 실행하기
+
+1.  VS Code에서 `App.jsx` 파일의 내용을 위 코드로 **완전히 교체**합니다.
+2.  **`Ctrl + S`** 를 눌러 파일을 **저장**합니다.
+3.  터미널을 열고 `my-ai-diary` 폴더가 맞는지 확인한 뒤, 아래 명령어들을 **한 줄씩 순서대로** 실행합니다.
+
+    ```bash
+    git add .
+    ```bash
+    git commit -m "임시 이름 설정 기능 추가"
+    ```bash
+    git push
+    ```
+
+4.  Vercel 사이트에서 배포가 완료될 때까지 기다린 후, 앱 페이지에서 **강력 새로고침 (`Ctrl + Shift + R`)**을 해주세요.
+
+이번에는 반드시 화면 맨 위에 이름 입력창이 보일 겁
