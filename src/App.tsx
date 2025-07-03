@@ -132,6 +132,16 @@ export default function App() {
     const [tempName, setTempName] = useState('');
 
 
+    // --- 정적 데이터 ---
+    const checklistItems = [
+        { id: 'concentration', label: '수업 집중' }, { id: 'homework', label: '숙제 완료' }, { id: 'review', label: '예습 또는 복습' },
+        { id: 'tidying', label: '정리정돈' }, { id: 'customProblem', label: '나만의 문제 만들기' }, { id: 'mindmap', label: '배운 내용 마인드맵으로 그리기' },
+    ];
+    const emotions = [
+        { id: 'good', label: '좋음', emoji: '😄' }, { id: 'ok', label: '괜찮음', emoji: '🙂' }, { id: 'soso', label: '그냥 그럼', emoji: '😐' },
+        { id: 'sad', label: '슬픔', emoji: '😢' }, { id: 'tired', label: '피곤함', emoji: '😴' }, { id: 'angry', label: '화남', emoji: '😠' },
+    ];
+    
     // --- 환경 변수 및 Firebase 초기화 ---
     const getEnvVar = useCallback((key: string): string | undefined => {
         try {
