@@ -14,7 +14,6 @@ interface CoachingReport {
     tip: string;
     comment: string;
 }
-// ✨ 신규: 학습 동화 데이터 타입
 interface StoryData {
     title: string;
     story: string;
@@ -87,7 +86,6 @@ const StudentFeedbackCard = ({ report }: { report: CoachingReport }) => (
     </div>
 );
 
-// ✨ 신규: 학습 동화 카드 컴포넌트
 const StoryCard = ({ data }: { data: StoryData }) => (
     <div className="bg-gray-700 p-4 rounded-md space-y-4">
         <div>
@@ -122,17 +120,19 @@ export default function App() {
     const [problems, setProblems] = useState<Question[]>([]);
     const [userAnswers, setUserAnswers] = useState<UserAnswers>({});
     const [revealedAnswers, setRevealedAnswers] = useState<RevealedAnswers>({});
-    const [storyData, setStoryData] = useState<StoryData | null>(null); // ✨ 신규
+    const [storyData, setStoryData] = useState<StoryData | null>(null);
 
     const [loadingStates, setLoadingStates] = useState({
         lifeFeedback: false,
         analysis: false, 
         problems: false,
-        story: false, // ✨ 신규
+        story: false,
+        sendingDiary: false,
     });
     
     const [db, setDb] = useState<Firestore | null>(null);
     const [userId, setUserId] = useState<string | null>(null);
+    const [studentName, setStudentName] = useState('');
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -171,6 +171,7 @@ export default function App() {
             const unsubscribe = onAuthStateChanged(auth, async (user) => {
                 if (user) {
                     setUserId(user.uid);
+                    setStudentName(user.displayName || "학생 이름 없음");
                 } else {
                     try {
                         const initialAuthToken = typeof window !== 'undefined' ? (window as any).__initial_auth_token : undefined;
@@ -211,7 +212,7 @@ export default function App() {
                 setProblems(data.aiProblems || []);
                 setUserAnswers(data.userAnswers || {});
                 setRevealedAnswers(data.revealedAnswers || {});
-                setStoryData(data.aiStoryData || null); // ✨ 신규
+                setStoryData(data.aiStoryData || null);
             }
         }, (err) => {
             console.error("Firestore 데이터 동기화 오류:", err);
@@ -363,7 +364,6 @@ export default function App() {
         setLoading('problems', false);
     };
 
-    // ✨ 신규: 학습 동화 만들기 핸들러
     const handleGetStory = async () => {
         if (!studyContent.trim()) { 
             setModalMessage('동화를 만들려면 공부한 내용을 먼저 알려주세요!'); 
@@ -410,6 +410,42 @@ export default function App() {
             }
         }
         setLoading('story', false);
+    };
+
+    const saveAndSendDiary = async () => {
+        if (!studentName || studentName === "학생 이름 없음") {
+            setModalMessage('학생 정보가 없습니다. 다시 로그인해주세요.');
+            return;
+        }
+
+        const checkedItemsText = checklistItems.filter(item => learningChecklist[item.id]).map(item => item.label).join(', ') || '없음';
+        const emotionLabel = emotions.find(e => e.id === selectedEmotion)?.label || '표시 안 함';
+
+        const diaryContent = `[오늘의 학습 루틴]\n${checkedItemsText}\n\n[오늘의 감정]\n- 기분: ${emotionLabel}\n- 이유: ${emotionReason || '기록 없음'}\n\n[오늘의 생각]\n${dailyThought || '기록 없음'}\n\n[오늘 배운 내용]\n${studyContent || '기록 없음'}`;
+
+        setLoading('sendingDiary', true);
+
+        try {
+            const response = await fetch("https://us-central1-exalted-yeti2.cloudfunctions.net/addDiary", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    studentId: studentName,
+                    content: diaryContent.trim(),
+                }),
+            });
+
+            if (response.ok) {
+                setModalMessage("일기가 선생님께 안전하게 전달되었어요! 😊");
+            } else {
+                throw new Error("서버에서 오류가 발생했습니다.");
+            }
+        } catch (error) {
+            console.error("일기 전송 오류:", error);
+            setModalMessage("오류가 발생하여 일기를 전송하지 못했습니다. 인터넷 연결을 확인해주세요.");
+        } finally {
+            setLoading('sendingDiary', false);
+        }
     };
 
     // --- 렌더링 ---
@@ -513,6 +549,19 @@ export default function App() {
                             </div>
                         </div>
                     )}
+                    
+                    {/* ✨ 변경된 부분: 버튼 텍스트 수정 및 추가 */}
+                    <div className="mt-12 text-center border-t-2 border-dashed border-gray-700 pt-8">
+                         <button
+                            onClick={saveAndSendDiary}
+                            disabled={loadingStates.sendingDiary}
+                            className="w-full max-w-xs mx-auto flex justify-center items-center gap-3 bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 disabled:opacity-50 text-white font-extrabold py-4 px-6 rounded-lg transition duration-300 shadow-xl text-lg"
+                        >
+                            {loadingStates.sendingDiary ? <Spinner /> : '💌 오늘 일기 저장하기'}
+                        </button>
+                        <p className="text-gray-500 text-xs mt-4">이 버튼을 누르면 오늘 작성한 모든 내용이 선생님께 전달됩니다.</p>
+                    </div>
+
                 </main>
             </div>
         </div>
