@@ -36,15 +36,15 @@ export default tseslint.config([
       // other options...
     },
   },
-])
+]);
 ```
 
 You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
 ```js
 // eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+import reactX from 'eslint-plugin-react-x';
+import reactDom from 'eslint-plugin-react-dom';
 
 export default tseslint.config([
   globalIgnores(['dist']),
@@ -65,5 +65,22 @@ export default tseslint.config([
       // other options...
     },
   },
-])
+]);
 ```
+
+## Troubleshooting
+
+### `npm run lint` invalid option `--ext`
+
+- **Cause:** ESLint configuration uses the new flat config where `--ext` flag is unsupported.
+- **Fix:** Update the lint script to simply run `eslint .`.
+
+### `npx eslint .` cannot find package `typescript-eslint`
+
+- **Cause:** `@typescript-eslint/parser` and plugin were not installed.
+- **Fix:** Install the missing `@typescript-eslint/*` packages.
+
+### `npm test` missing script "test"
+
+- **Cause:** `package.json` lacked a `test` script and Jest configuration.
+- **Fix:** Add a Jest setup and `test` script so `npm test` executes unit tests.
